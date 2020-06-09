@@ -8,6 +8,7 @@ use PDO;
 final class Database
 {
     private $databaseName;
+
     /**
      * @var callable
      */
@@ -16,12 +17,21 @@ final class Database
      * @var array
      */
     private $connectionOptions;
+    /**
+     * @var SqlGenerator
+     */
+    private $sqlGenerator;
 
-    public function __construct(string $databaseName, array $connectionOptions, callable $cleanUpResources)
-    {
+    public function __construct(
+        string $databaseName,
+        array $connectionOptions,
+        callable $cleanUpResources,
+        SqlGenerator $sqlGenerator
+    ) {
         $this->databaseName = $databaseName;
         $this->cleanUpResources = $cleanUpResources;
         $this->connectionOptions = $connectionOptions;
+        $this->sqlGenerator = $sqlGenerator;
     }
 
     public function provideConnectionOptions(): array
@@ -66,16 +76,15 @@ final class Database
         );
     }
 
-    public function loadData(array $tableData): void
+    public function loadArrayData(array $tableData): void
     {
         $connection = $this->createConnection();
 
         foreach ($tableData as $tableName => $rows) {
-            $singleRow = rtrim(str_repeat('?,', count($rows[0])), ',');
             $sql = sprintf(
                 'INSERT INTO `%s` VALUES %s',
                 $tableName,
-                rtrim(str_repeat(sprintf('(%s),', $singleRow), count($rows)), ',')
+                $this->sqlGenerator->generatePlaceholder(count($rows[0]), count($rows))
             );
 
             $stmt = $connection->prepare($sql);
@@ -86,5 +95,55 @@ final class Database
                 }, [])
             );
         }
+    }
+
+    public function loadCsv(string $tableName, string $fileName): void
+    {
+        $csvObject = new \SplFileObject($fileName);
+        $csvObject->setFlags(\SplFileObject::READ_CSV | \SplFileObject::SKIP_EMPTY);
+        $csvObject->setCsvControl(',', '"', "\0");
+
+        $columns = [];
+        $parameters = [];
+        $rowCount = 0;
+
+        foreach ($csvObject as $row) {
+            if (!$row) {
+                continue;
+            }
+
+            if (!$columns) {
+                $columns = $row;
+                continue;
+            }
+
+            $parameters = array_merge($parameters, $row);
+            $rowCount ++;
+        }
+
+        $connection = $this->createConnection();
+        $stmt = $connection->prepare(
+            sprintf(
+                'INSERT INTO `%s` (%s) VALUES %s',
+                $tableName,
+                $this->sqlGenerator->generateColumnList(...$columns),
+                $this->sqlGenerator->generatePlaceholder(count($columns), $rowCount)
+            )
+        );
+
+        $stmt->execute($parameters);
+    }
+
+    public function fetchTable(string $tableName, string ...$columns): array
+    {
+        $connection = $this->createConnection();
+        return iterator_to_array($connection->query(
+            sprintf(
+                'SELECT %s FROM %s',
+                $columns ? $this->sqlGenerator->generateColumnList(...$columns) : '*',
+                $tableName
+            ),
+            PDO::FETCH_NUM
+        ));
     }
 }

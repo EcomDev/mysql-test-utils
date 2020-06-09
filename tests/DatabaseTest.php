@@ -133,7 +133,7 @@ class DatabaseTest extends TestCase
 
         $database->loadFixture(__DIR__ . '/files/product-schema.sql');
 
-        $database->loadData([
+        $database->loadArrayData([
             'product' => [
                 [1, 'SKU1', 'simple'],
                 [2, 'SKU2', 'simple'],
@@ -158,6 +158,82 @@ class DatabaseTest extends TestCase
                 . 'ON pd.product_id = p.product_id AND pd.attribute = "name"',
                 $database->createConnection()
             )
+        );
+    }
+
+    /** @test */
+    public function loadsCsvFileTable()
+    {
+        $database = $this->factory->createDatabase();
+
+        $database->loadFixture(__DIR__ . '/files/product-schema.sql');
+
+        $csvFile = $this->createCsvFile(
+            ["sku", "type"],
+            ["SKU2", "simple"],
+            ["SKU3", "simple"],
+            ["SKU4", "configurable"]
+        );
+
+
+        $database->loadCsv('product', $csvFile);
+
+        $this->assertEquals(
+            [
+                [1, 'SKU2', 'simple'],
+                [2, 'SKU3', 'simple'],
+                [3, 'SKU4', 'configurable'],
+            ],
+            $this->fetchRows(
+                'SELECT * FROM product',
+                $database->createConnection()
+            )
+        );
+    }
+
+    /** @test */
+    public function fetchesDataFromWholeTable()
+    {
+        $database = $this->factory->createDatabase();
+        $database->loadFixture(__DIR__ . '/files/product-schema.sql');
+        $database->loadArrayData([
+            'product' => [
+                [1, 'SKU1', 'type1'],
+                [2, 'SKU2', 'type2'],
+                [3, 'SKU3', 'type3']
+            ]
+        ]);
+
+        $this->assertEquals(
+            [
+                [1, 'SKU1', 'type1'],
+                [2, 'SKU2', 'type2'],
+                [3, 'SKU3', 'type3'],
+            ],
+            $database->fetchTable('product')
+        );
+    }
+
+    /** @test */
+    public function fetchesDataFromSpecificTableColumns()
+    {
+        $database = $this->factory->createDatabase();
+        $database->loadFixture(__DIR__ . '/files/product-schema.sql');
+        $database->loadArrayData([
+            'product' => [
+                [1, 'SKU1', 'type1'],
+                [2, 'SKU2', 'type2'],
+                [3, 'SKU3', 'type3']
+            ]
+        ]);
+
+        $this->assertEquals(
+            [
+                ['SKU1', 'type1'],
+                ['SKU2', 'type2'],
+                ['SKU3', 'type3'],
+            ],
+            $database->fetchTable('product', 'sku', 'type')
         );
     }
 
@@ -195,5 +271,18 @@ class DatabaseTest extends TestCase
                 PDO::FETCH_NUM
             )
         );
+    }
+
+    private function createCsvFile(array ...$rows): string
+    {
+        $filePath = tempnam(sys_get_temp_dir(), 'csv-file');
+        $csvFile = new \SplFileObject($filePath, 'w');
+        $csvFile->setCsvControl(",", '"', "\0");
+
+        foreach ($rows as $row) {
+            $csvFile->fputcsv($row);
+        }
+
+        return $filePath;
     }
 }

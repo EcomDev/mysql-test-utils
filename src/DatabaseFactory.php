@@ -53,7 +53,8 @@ final class DatabaseFactory
             $this->connectionOptions(),
             function () use ($connection, $databaseName) {
                 $connection->exec(sprintf('DROP DATABASE IF EXISTS `%s`', $databaseName));
-            }
+            },
+            new SqlGenerator()
         );
     }
 }
