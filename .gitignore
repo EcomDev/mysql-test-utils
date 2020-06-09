@@ -1,6 +1,9 @@
 # IDE
 .idea
 
+# PHPUnit
+/.phpunit.result.cache
+
 # Composer
 composer.phar
 /vendor/

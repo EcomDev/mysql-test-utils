@@ -1,0 +1,27 @@
+{
+    "name": "ecomdev/mysql-test-utils",
+    "description": "Bare minimum MySQL Test utilities for writing automated tests of software that relies on MySQL as data storage.",
+    "type": "library",
+
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Ivan Chepurnyi",
+            "email": "ivan.chepurnyi@ecomdev.org"
+        }
+    ],
+    "autoload-dev": {
+        "psr-4": {
+            "EcomDev\\MySQLTestUtils\\": "tests"
+        }
+    },
+    "autoload": {
+        "psr-4": {
+            "EcomDev\\MySQLTestUtils\\": "src"
+        }
+    },
+    "require": {},
+    "require-dev": {
+        "phpunit/phpunit": "^9.2"
+    }
+}
